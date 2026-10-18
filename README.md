@@ -115,11 +115,11 @@ with the fork's config, parser, cycling, tree, diagnostics and identity regressi
 tests: **416 tests, zero failures**. The exact headless test command was:
 
 ```bash
-swiftly run swift test --jobs 4
+swiftly run swift test --jobs 4 -Xswiftc -warnings-as-errors
 ```
 
 This is unit-test evidence, not a live Accessibility/window-management trial.
-The stock WM stayed running; the fork was not launched.
+The stock WM stayed running throughout the unit checks.
 
 The pinned native-architecture Release CLI/app build and explicit installation
 also completed successfully with:
@@ -131,11 +131,20 @@ also completed successfully with:
 
 Xcode reported `BUILD SUCCEEDED`; strict signature verification passed for the
 staged app and CLI. The installed bundle is
-`/Users/arthur/Applications/AeroSpace-fork.app`, ad-hoc signed and **not launched**.
+`/Users/arthur/Applications/AeroSpace-fork.app`, ad-hoc signed.
 Apple Development signing also succeeded through a local Mac helper without
 keychain-policy changes, but the SSH path failed as noted above; the final
 installed bundle intentionally uses ad-hoc signing. Neither result establishes
 permission persistence or successful live window management.
+
+After explicit human approval, a background live swap launched the fork but its
+server remained unavailable at the Accessibility startup gate. The fork was
+quit and stock 0.20.3-Beta immediately relaunched; stock workspace/window queries
+succeeded after rollback. No agent test application was launched, so live
+routing, focus preservation and bindings are not yet proven. Enable the fork's
+separate Accessibility entry in System Settings before another approved trial.
+The transition wait now checks fresh process state rather than a cached
+`NSRunningApplication.isTerminated` property.
 
 ### Approved live trial and rollback
 

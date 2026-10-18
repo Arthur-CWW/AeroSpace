@@ -109,20 +109,94 @@ Background launch does not prove that Accessibility permission or window
 management works. The separate fork identity needs its own manual Accessibility
 approval in System Settings, and rollback cannot reconstruct prior window layout.
 
-### Agent launches
+### Agent-window policy and explicit commands
 
-For agent-originated GUI processes, preserve the opt-in marker through a wrapper:
+The fork's default agent policy is:
 
-```bash
-agent_run() { env AEROSPACE_AGENT=1 "$@"; }
-agent_run /path/to/application/executable
+```toml
+[agent]
+workspace = 'agent'
+layout = 'floating'
+exclude-from-cycling = true
 ```
 
-Marker inheritance requires a new process; opening a file in an already-running
-shared application does not retag that process or its windows. Use the fork's
-explicit window-adoption command for that case. Chrome title/profile routing and
-named-workspace policy are separate configuration discussions, not automatic
-side effects of building or installing this fork.
+The agent workspace must be **named**, not numeric. These defaults keep agent
+windows floating on the separate `agent` workspace and exclude that workspace
+from ordinary workspace cycling. Detection or adoption does not focus the
+window or switch to its workspace.
+
+Launch a new agent process and its descendants through the executable wrapper:
+
+```bash
+./script/arthur-agent /path/to/application/executable
+```
+
+The wrapper sets `AEROSPACE_AGENT=1` and `exec`s the supplied command. Automatic
+ownership detection examines the window owner's process environment and living
+ancestors. It fails closed when process information is unreadable or ownership
+cannot be proved. Opening another window in an already-running shared browser or
+editor does not retag that existing process; explicitly adopt just the intended
+window instead:
+
+```bash
+./.arthur-build/aerospace list-windows --all
+./.arthur-build/aerospace adopt-agent-window --window-id 42
+```
+
+Replace `42` with the inspected window ID. Adoption requires an explicit ID and
+never silently adopts the focused window or every window of its application.
+The CLI connects to the running WM; use fork-only commands only during an
+approved fork trial, not while stock is running.
+
+**Human-directed focus only:** the following commands intentionally focus an
+agent window and can switch workspaces. Agents must not invoke them as an
+automatic part of launching or adoption:
+
+```bash
+./.arthur-build/aerospace focus-agent-window
+./.arthur-build/aerospace focus-agent-window --next
+```
+
+The first selects the most recently adopted/focused available agent window
+(falling back to the lowest ID); `--next` cycles in ascending window-ID order.
+They do not adopt unmarked windows and fail when no agent window is available.
+
+Launch agent GUI applications in the background/nonactivating mode whenever
+the application supports it. macOS can activate an application before AeroSpace
+observes its new window; suppression cannot eliminate that transient activation.
+Native focus restoration is best effort and cannot reconstruct the previous
+native application at startup before a user application has been observed.
+
+### Tracked-window diagnostics and reconciliation
+
+```bash
+./.arthur-build/aerospace debug-windows --inventory
+# Explicit mutation: run only when removal of proven-stale tree nodes is intended.
+./.arthur-build/aerospace debug-windows --reconcile
+```
+
+`--inventory` produces JSON for **tracked tree windows**, not every system window
+and not automatic adoption. It includes workspace/layout/title, owning PID,
+CG metadata, AX enumeration/lookup status, stale/helper hints and removal status.
+It does not change interactive debug recording state.
+
+`--reconcile` uses the same evidence and normal garbage-collection/focus-repair
+path to remove proven-stale tree nodes. It does not close native windows or kill
+applications. An owning application's termination, or confirmed absence from
+both a complete successful AX enumeration and a successful CG snapshot matched
+by window ID **and PID**, establishes staleness. Hidden/minimized/offscreen,
+zero-alpha, unusual-layer, missing-title, helper-candidate and permission-error
+observations do not by themselves authorize removal. Reconciliation can change
+the tree and repair focus; inspect inventory first rather than using it as a
+routine visibility cleanup. Output is a live multi-API snapshot and an unstable
+debug API, not a reliable automation contract.
+
+See the command docs for [adoption](./docs/aerospace-adopt-agent-window.adoc),
+[explicit focus](./docs/aerospace-focus-agent-window.adoc), and
+[inventory/reconciliation](./docs/aerospace-debug-windows.adoc). Chrome
+title/profile routing and named-workspace policy remain separate configuration
+discussions, not side effects of build/install. None of these instructions claims
+that tests or the live permission/WM trial have passed.
 
 ## Key features
 

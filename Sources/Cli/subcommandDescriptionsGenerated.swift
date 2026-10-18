@@ -2,6 +2,7 @@
 // TO REGENERATE THE FILE RUN generate.sh
 
 let subcommandDescriptions = [
+    ["  adopt-agent-window", "Explicitly mark a window as agent-owned and apply the agent placement policy"],
     ["  balance-sizes", "Balance sizes of all windows in the current workspace"],
     ["  close-all-windows-but-current", "On the focused workspace, close all windows but current"],
     ["  close", "Close the focused window"],
@@ -12,6 +13,7 @@ let subcommandDescriptions = [
     ["  eval", "Send multiple commands to AeroSpace at once"],
     ["  false", "Return false value"],
     ["  flatten-workspace-tree", "Flatten the tree of the focused workspace"],
+    ["  focus-agent-window", "Explicitly focus an agent-owned window"],
     ["  focus-back-and-forth", "Switch between the current and previously focused elements back and forth"],
     ["  focus-monitor", "Focus monitor by relative direction, by order, or by pattern"],
     ["  focus", "Set focus to a window."],

@@ -1,0 +1,8 @@
+#!/bin/bash
+# Tag a new process and its descendants; cannot retag an existing shared app.
+set -euo pipefail
+if [ "$#" -eq 0 ]; then
+    printf 'Usage: script/arthur-agent <executable> [arguments ...]\n' >&2
+    exit 2
+fi
+exec /usr/bin/env AEROSPACE_AGENT=1 "$@"

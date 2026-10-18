@@ -63,9 +63,24 @@ function run(argv) {
         source = app;
     }
     if (source !== null) {
+        const sourcePid = source.processIdentifier;
+        function sourceIsRunning() {
+            // A fresh process lookup avoids NSRunningApplication's run-loop-cached state.
+            // Keep waiting if the PID is reused; never risk launching a concurrent WM.
+            const probe = $.NSTask.alloc.init;
+            probe.launchPath = '/bin/ps';
+            probe.arguments = ['-p', String(sourcePid), '-o', 'pid='];
+            probe.standardOutput = $.NSFileHandle.fileHandleWithNullDevice;
+            probe.standardError = $.NSFileHandle.fileHandleWithNullDevice;
+            probe.launch;
+            probe.waitUntilExit;
+            const status = probe.terminationStatus;
+            if (status !== 0 && status !== 1) throw new Error('Unable to check source process; target was not launched.');
+            return status === 0;
+        }
         if (!source.terminate) throw new Error('Source refused graceful termination.');
-        for (let i = 0; i < 100 && !source.isTerminated; i++) delay(0.1);
-        if (!source.isTerminated) throw new Error('Source did not quit; target was not launched. No force-kill attempted.');
+        for (let i = 0; i < 100 && sourceIsRunning(); i++) delay(0.1);
+        if (sourceIsRunning()) throw new Error('Source did not quit; target was not launched. No force-kill attempted.');
     }
 }
 JXA

@@ -65,8 +65,12 @@ identifier explicitly:
 ```
 
 The script checks the selected compiler against `.swift-version` and refuses
-a mismatch by default. The checked-in Xcode project refers to an upstream
-custom toolchain; `--toolchain` overrides it for both Xcode and the Swift CLI.
+a mismatch by default. `--toolchain` selects the SwiftPM compiler and resolves
+the same absolute `swiftc` for Xcode's `SWIFT_EXEC` build setting. Xcode keeps
+its default Apple tool environment for manifest evaluation and linking: the
+standalone Swift toolchain lacks `usr/bin/ld`. This also overrides the checked-in
+project's upstream custom-toolchain selection without forcing a different
+language mode on older package dependencies.
 For a deliberately non-pinned local build using Xcode's bundled Swift instead:
 
 ```bash
@@ -78,11 +82,21 @@ That override still requires Swift >=6.2 and does not guarantee compatibility.
 Build/test success with any compiler must be recorded separately; these commands
 are not evidence that the compiler or live WM trial has been validated.
 
-By default signing uses the local
-`Apple Development: Created via API (AS8R4Z9F4R)` identity. To select another
-local identity, pass `--codesign-identity 'Apple Development: …'`; to use ad-hoc
-signing, pass `--codesign-identity -`. Ad-hoc signatures may not retain
-Accessibility trust across rebuilds. Signing is local, not notarization.
+Signing defaults to **ad-hoc** (`--codesign-identity -`) for noninteractive local
+builds. The available `Apple Development: Created via API (AS8R4Z9F4R)` identity
+failed signing over SSH with `errSecInternalComponent`; no keychain access policy
+was changed. Apple Development signing is opt-in, for a human-controlled local
+session with access to that private key:
+
+```bash
+./script/arthur-build.sh --toolchain org.swift.640202609131a \
+    --codesign-identity 'Apple Development: Created via API (AS8R4Z9F4R)' --install
+```
+
+Ad-hoc signatures may not retain Accessibility trust across rebuilds. Neither
+ad-hoc nor local Apple Development signing constitutes notarization. A successful
+build or signature check does not establish Accessibility permission or a
+successful live WM trial.
 
 The native-architecture Release app and SwiftPM CLI are staged at
 `.arthur-build/AeroSpace-fork.app` and `.arthur-build/aerospace`. Only explicit
@@ -93,6 +107,35 @@ package dependencies and generated sources. It does not run `generate.sh`,
 Ruby/Rust dependencies. It does not produce universal binaries, release archives,
 fresh generated help/version metadata, or a Homebrew cask. Preserve `.arthur-build`
 between builds for incremental compilation.
+
+### Recorded verification
+
+On 2026-10-18, the Mac's pinned Swift 6.4.0 ran the upstream XCTest suite
+with the fork's config, parser, cycling, tree, diagnostics and identity regression
+tests: **416 tests, zero failures**. The exact headless test command was:
+
+```bash
+swiftly run swift test --jobs 4
+```
+
+This is unit-test evidence, not a live Accessibility/window-management trial.
+The stock WM stayed running; the fork was not launched.
+
+The pinned native-architecture Release CLI/app build and explicit installation
+also completed successfully with:
+
+```bash
+./script/arthur-build.sh --toolchain org.swift.640202609131a \
+    --codesign-identity - --install
+```
+
+Xcode reported `BUILD SUCCEEDED`; strict signature verification passed for the
+staged app and CLI. The installed bundle is
+`/Users/arthur/Applications/AeroSpace-fork.app`, ad-hoc signed and **not launched**.
+Apple Development signing also succeeded through a local Mac helper without
+keychain-policy changes, but the SSH path failed as noted above; the final
+installed bundle intentionally uses ad-hoc signing. Neither result establishes
+permission persistence or successful live window management.
 
 ### Approved live trial and rollback
 

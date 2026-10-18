@@ -9,8 +9,9 @@ Usage: script/arthur-build.sh [--install] [--codesign-identity ID]
                              [--toolchain ID] [--allow-toolchain-mismatch]
 Builds .arthur-build/AeroSpace-fork.app and .arthur-build/aerospace.
 --install copies only the app to ~/Applications/AeroSpace-fork.app; never launches.
-Default signing: Apple Development: Created via API (AS8R4Z9F4R).
-Use --codesign-identity - for ad-hoc signing (Accessibility trust may not persist).
+Default signing: ad-hoc (-), noninteractive for local use.
+Use --codesign-identity ID for a Development identity with local Keychain access.
+Ad-hoc signing may not preserve Accessibility trust across rebuilds.
 Default toolchain: com.apple.dt.toolchain.XcodeDefault, resolved through xcrun.
 The compiler must match .swift-version unless explicitly opting out; Swift >=6.2
 is always required. Select Xcode with DEVELOPER_DIR or xcode-select beforehand.
@@ -19,7 +20,7 @@ EOF
 
 install=0
 allow_mismatch=0
-identity='Apple Development: Created via API (AS8R4Z9F4R)'
+identity=-
 toolchain=com.apple.dt.toolchain.XcodeDefault
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -44,6 +45,7 @@ build="$root/.arthur-build"
 export TOOLCHAINS="$toolchain"
 /usr/bin/xcodebuild -version
 compiler_info=$(/usr/bin/xcrun --toolchain "$toolchain" swift --version)
+swift_compiler=$(/usr/bin/xcrun --toolchain "$toolchain" --find swiftc)
 printf '%s\n' "$compiler_info"
 [[ "$compiler_info" =~ Swift\ version\ ([0-9]+)\.([0-9]+)(\.([0-9]+))? ]] || fail 'Cannot determine Swift compiler version.'
 major=${BASH_REMATCH[1]}
@@ -60,16 +62,19 @@ arch=$(uname -m)
 case "$arch" in arm64|x86_64) ;; *) fail "Unsupported native architecture: $arch" ;; esac
 mkdir -p "$build"
 
-# Keep the same compiler for SwiftPM and Xcode, bypassing the upstream project's
-# generated custom TOOLCHAINS ID. No generation, checkout, docs or completions.
+# Keep the selected Swift compiler for SwiftPM and every Xcode Swift target.
+# Xcode's manifest evaluator requires Apple's complete tool environment: release
+# Swift toolchains omit usr/bin/ld. Scope SWIFT_EXEC to build settings (not the
+# environment) so manifest evaluation can use Xcode's linker. Leave package
+# language modes intact rather than forcing Swift 6 on older dependencies.
 swift_build=(--package-path "$root" --scratch-path "$build/swift" -c release --arch "$arch" --product aerospace -Xswiftc -D -Xswiftc ARTHUR_FORK)
 /usr/bin/xcrun --toolchain "$toolchain" swift build "${swift_build[@]}"
 cli_bin=$(/usr/bin/xcrun --toolchain "$toolchain" swift build "${swift_build[@]}" --show-bin-path)
-/usr/bin/xcodebuild build \
+TOOLCHAINS=com.apple.dt.toolchain.XcodeDefault /usr/bin/xcodebuild build \
     -project "$root/xcode/AeroSpace.xcodeproj" -scheme AeroSpace \
     -configuration Release -destination 'generic/platform=macOS' \
     -derivedDataPath "$build/xcode" \
-    "TOOLCHAINS=$toolchain" SWIFT_VERSION=6.2 \
+    TOOLCHAINS=com.apple.dt.toolchain.XcodeDefault "SWIFT_EXEC=$swift_compiler" \
     "ARCHS=$arch" ONLY_ACTIVE_ARCH=YES \
     PRODUCT_NAME=AeroSpace-fork PRODUCT_BUNDLE_IDENTIFIER=org.arthur.aerospace.fork \
     INFOPLIST_KEY_CFBundleDisplayName=AeroSpace-fork \

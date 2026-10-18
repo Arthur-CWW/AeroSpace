@@ -10,6 +10,8 @@ include::util/man-attributes.adoc[]
 [verse]
 // tag::synopsis[]
 aerospace debug-windows [-h|--help] [--window-id <window-id>]
+aerospace debug-windows [-h|--help] --inventory
+aerospace debug-windows [-h|--help] --reconcile
 
 // end::synopsis[]
 
@@ -28,6 +30,46 @@ The intended usage is the following:
 . Focus problematic window or make the window appear.
 . Run the command one more time to stop the debug session recording and print the results
 
+=== Snapshot inventory and explicit reconciliation
+
+`--inventory` prints a JSON snapshot of tracked tree windows without starting,
+stopping, or adding entries to the interactive recording. `--reconcile` prints
+the same inventory and explicitly removes only tree nodes established to be stale.
+Both modes are mutually exclusive with each other and with `--window-id`.
+
+The `windows` array is sorted by window id. Each row includes `windowId`, `pid`,
+`workspace`, `title`, `layout`, CG metadata (`present`, `onscreen`, `layer`, `alpha`,
+`bounds`), `axEnumerationStatus`, `axLookupStatus`, AX `role`, `subrole`, `minimized`,
+`appHidden`, `staleCandidate`, `staleReason`, `helperCandidate`, and `removed`.
+Unavailable optional values are omitted. `cgEnumerationStatus` reports whether
+the full CG snapshot was available. This is an inventory of tracked nodes, not
+an enumeration or automatic adoption of every untracked system window.
+
+CG metadata comes from `CGWindowList` with `optionAll`, matched by window id
+*and owning PID*. AX lookup uses a fresh full `AXWindows` enumeration of each
+tracked window's owning application, rather than AeroSpace's cached AX windows.
+`axLookupStatus` is `found`, `absent` (only after complete enumeration), or
+`unknown`. Permission failures, AX errors, malformed responses and unmappable
+window IDs make absence inconclusive. Window attributes may be unavailable even
+when lookup succeeds.
+
+A node is a stale candidate only if its owning application has terminated, or
+if a successful complete AX enumeration does not contain it *and* a successful
+CG snapshot does not contain its `(window id, PID)`. Offscreen, another Space,
+hidden, minimized, zero-alpha or unusual-layer windows are *not* stale merely
+because of those properties. Missing titles and AX permission errors never
+authorize removal. `helperCandidate` requires both a nonzero CG layer and AX
+evidence of a non-window role or floating-window subrole; it is only a diagnostic
+hint and never authorizes removal.
+
+`--reconcile` uses the normal window garbage collector, including tree unbinding,
+closed-window caching and focus repair. It does not close native windows, kill
+applications, or remove helper candidates merely because they look unusual.
+`removed` reports nodes removed by this invocation; the remaining fields describe
+the snapshot immediately before removal. As with any live multi-API snapshot,
+applications can create or destroy windows while the inventory is collected.
+
+
 `debug-windows` command is *not stable API*.
 Please *don't rely on* the command existence and output format.
 The only intended use case is to report bugs about incorrect windows handling.
@@ -40,6 +82,13 @@ include::util/conditional-options-header.adoc[]
 --window-id <window-id>::
 Print debug information of the specified window right away.
 Usage of this flag disables interactive mode.
+
+--inventory::
+Print a JSON tree/CG/AX inventory immediately, without changing recording state.
+
+--reconcile::
+Explicitly remove proven stale tree nodes and print JSON results. Uses the same
+conservative evidence rules as `--inventory`; never removes on visibility alone.
 
 // end::body[]
 

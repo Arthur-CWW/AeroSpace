@@ -24,6 +24,9 @@ struct DebugWindowsCommand: Command {
     /*conforms*/ let shouldResetClosedWindowsCache = false
 
     func run(_ env: CmdEnv, _ io: CmdIo) async -> BinaryExitCode {
+        if args.inventory || args.reconcile {
+            return await runWindowInventory(reconcile: args.reconcile, io: io)
+        }
         if let windowId = args.windowId {
             guard let window = Window.get(byId: windowId) else {
                 return .fail(io.err("Can't find window with the specified window-id: \(windowId)"))

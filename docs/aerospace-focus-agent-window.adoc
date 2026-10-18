@@ -1,0 +1,56 @@
+= aerospace-focus-agent-window(1)
+include::util/man-attributes.adoc[]
+// tag::purpose[]
+:manpurpose: Explicitly focus an agent-owned window
+// end::purpose[]
+:manname: aerospace-focus-agent-window
+
+// =========================================================== Synopsis
+== Synopsis
+[verse]
+// tag::synopsis[]
+aerospace focus-agent-window [-h|--help] [--next]
+
+// end::synopsis[]
+
+// =========================================================== Description
+== Description
+
+// tag::body[]
+{manpurpose}.
+Without `--next`, focus the most recently adopted or focused agent window.
+If that remembered window is no longer available, focus the agent window with the lowest window ID.
+Use `--next` to cycle in ascending window-ID order, wrapping after the last window.
+Cycling starts from the currently focused agent window, or the remembered agent window when focus is elsewhere.
+The command fails if no agent window is available.
+It never adopts an unmarked window.
+
+Focusing an agent window is explicit: automatically detecting or adopting an agent window does not focus it or switch to its workspace.
+An agent workspace excluded from ordinary workspace cycling remains accessible through this command.
+
+Agent-window policy is configured with:
+
+[source,toml]
+----
+[agent]
+workspace = 'agent'
+layout = 'floating'
+exclude-from-cycling = true
+----
+
+Numeric workspace names are forbidden for the agent workspace.
+Automatic ownership detection uses process environment and ancestry and fails closed when ownership cannot be established.
+The ownership marker is `AEROSPACE_AGENT=1` in the owning process or a living ancestor.
+A launch wrapper cannot mark windows in an already-running shared application.
+Use <<adopt-agent-window, adopt-agent-window>> with an explicit window ID for those windows before focusing them.
+// end::body[]
+
+// =========================================================== Options
+include::util/conditional-options-header.adoc[]
+
+-h, --help:: Print help
+
+--next:: Cycle to the next agent-owned window.
+
+// =========================================================== Footer
+include::util/man-footer.adoc[]

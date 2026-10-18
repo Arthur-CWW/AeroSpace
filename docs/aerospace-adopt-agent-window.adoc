@@ -1,0 +1,67 @@
+= aerospace-adopt-agent-window(1)
+include::util/man-attributes.adoc[]
+// tag::purpose[]
+:manpurpose: Explicitly mark a window as agent-owned and apply the agent placement policy
+// end::purpose[]
+:manname: aerospace-adopt-agent-window
+
+// =========================================================== Synopsis
+== Synopsis
+[verse]
+// tag::synopsis[]
+aerospace adopt-agent-window [-h|--help] --window-id <window-id>
+
+// end::synopsis[]
+
+// =========================================================== Description
+== Description
+
+// tag::body[]
+{manpurpose}.
+The window ID is required; omitting it never adopts the focused window.
+Use `aerospace list-windows --all` to find a window ID.
+Adoption applies to that window, not every window of its application.
+It does not focus the window or switch to its workspace.
+Use <<focus-agent-window, focus-agent-window>> when you explicitly want to focus an agent window.
+
+Agent windows use the following configuration:
+
+[source,toml]
+----
+[agent]
+workspace = 'agent'
+layout = 'floating'
+exclude-from-cycling = true
+----
+
+The agent workspace must be named; numeric workspace names are forbidden.
+`layout` controls agent-window placement, and `exclude-from-cycling` keeps the agent workspace out of ordinary workspace cycling.
+
+Automatic agent detection inspects the owning process's environment and process ancestry.
+The marker is `AEROSPACE_AGENT=1` in the owning process or a living ancestor.
+It fails closed: unreadable process information or ancestry that does not prove agent ownership does not mark the window as agent-owned.
+Detection and adoption do not automatically focus agent windows.
+
+Launch agent applications in the background when possible to avoid application-driven activation.
+Native focus restoration is best effort: AeroSpace remembers the last non-agent frontmost application and restores its activation when the user workspace has no window to restore.
+At startup, before a user application has been observed, the previous native application cannot be reconstructed.
+macOS may briefly activate an agent application before AeroSpace observes it; background or nonactivating launches are required to avoid that transient activation entirely.
+Suppressed agent focus never switches AeroSpace's workspace.
+
+A launch wrapper can mark a newly launched process and its descendants, but cannot mark an already-running shared application merely by opening another window in it.
+For windows created by an already-running browser, editor, or other shared application, use explicit adoption:
+
+----
+aerospace adopt-agent-window --window-id 42
+----
+// end::body[]
+
+// =========================================================== Options
+include::util/conditional-options-header.adoc[]
+
+-h, --help:: Print help
+
+--window-id <window-id>:: ID of the window to adopt. Required; an unsigned 32-bit window ID.
+
+// =========================================================== Footer
+include::util/man-footer.adoc[]

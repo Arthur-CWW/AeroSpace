@@ -8,6 +8,8 @@ extension CmdArgs {
                 command = FalseCommand(args: self as! FalseCmdArgs)
             case ._true:
                 command = TrueCommand(args: self as! TrueCmdArgs)
+            case .adoptAgentWindow:
+                command = AdoptAgentWindowCommand(args: self as! AdoptAgentWindowCmdArgs)
             case .balanceSizes:
                 command = BalanceSizesCommand(args: self as! BalanceSizesCmdArgs)
             case .close:
@@ -30,6 +32,8 @@ extension CmdArgs {
                 command = FlattenWorkspaceTreeCommand(args: self as! FlattenWorkspaceTreeCmdArgs)
             case .focus:
                 command = FocusCommand(args: self as! FocusCmdArgs)
+            case .focusAgentWindow:
+                command = FocusAgentWindowCommand(args: self as! FocusAgentWindowCmdArgs)
             case .focusBackAndForth:
                 command = FocusBackAndForthCommand(args: self as! FocusBackAndForthCmdArgs)
             case .focusMonitor:

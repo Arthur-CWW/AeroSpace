@@ -5,6 +5,13 @@ include::util/header.adoc[]
 
 Commands documentation is also available as manpages.
 
+== adopt-agent-window
+----
+include::aerospace-adopt-agent-window.adoc[tags=synopsis]
+----
+include::aerospace-adopt-agent-window.adoc[tags=purpose]
+include::aerospace-adopt-agent-window.adoc[tags=body]
+
 == balance-sizes
 ----
 include::aerospace-balance-sizes.adoc[tags=synopsis]
@@ -88,6 +95,13 @@ include::aerospace-focus.adoc[tags=synopsis]
 ----
 include::aerospace-focus.adoc[tags=purpose]
 include::aerospace-focus.adoc[tags=body]
+
+== focus-agent-window
+----
+include::aerospace-focus-agent-window.adoc[tags=synopsis]
+----
+include::aerospace-focus-agent-window.adoc[tags=purpose]
+include::aerospace-focus-agent-window.adoc[tags=body]
 
 == focus-back-and-forth
 ----

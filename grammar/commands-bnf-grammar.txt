@@ -8,7 +8,9 @@ aerospace -h;
 
 <subcommand> ::=
 
-    balance-sizes [--workspace <workspace>]
+    adopt-agent-window --window-id <window_id>
+
+    | balance-sizes [--workspace <workspace>]
 
     | close [--quit-if-last-window|--window-id <window_id>]...
 
@@ -37,6 +39,8 @@ aerospace -h;
     | focus --window-id <window_id>
     | focus --dfs-index <number>
     | focus [<focus_dfs_relative_flag>]... (dfs-next|dfs-prev) [<focus_dfs_relative_flag>]...
+
+    | focus-agent-window [--next]
 
     | focus-back-and-forth
 

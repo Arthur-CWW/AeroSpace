@@ -13,7 +13,7 @@ Docs:
 - [AeroSpace Commands](https://nikitabobko.github.io/AeroSpace/commands)
 - [AeroSpace Goodies](https://nikitabobko.github.io/AeroSpace/goodies)
 
-## Arthur's local fork
+## Arthur fork
 
 This fork builds a separate **AeroSpace-fork.app**, bundle ID
 `org.arthur.aerospace.fork`, without replacing `/Applications/AeroSpace.app`.

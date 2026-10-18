@@ -9,12 +9,16 @@ func isAgentProcess(_ pid: pid_t) -> Bool {
     while current > 1, visited.insert(current).inserted {
         guard let environment = readProcessEnvironment(current) else { return false }
         if environment.contains("AEROSPACE_AGENT=1") { return true }
-        var info = kinfo_proc()
-        var size = MemoryLayout<kinfo_proc>.stride
+        // SAFETY: Initialize the Darwin struct and use its exact ABI size for
+        // the synchronous sysctl write; no pointer escapes the call.
+        var info = unsafe kinfo_proc()
+        let infoSize = unsafe MemoryLayout<kinfo_proc>.stride
+        var size = infoSize
         var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, current]
-        guard sysctl(&mib, UInt32(mib.count), &info, &size, nil, 0) == 0,
-              size == MemoryLayout<kinfo_proc>.stride else { return false }
-        current = info.kp_eproc.e_ppid
+        guard unsafe sysctl(&mib, UInt32(mib.count), &info, &size, nil, 0) == 0,
+              size == infoSize else { return false }
+        // SAFETY: The successful sysctl filled the entire initialized struct.
+        current = unsafe info.kp_eproc.e_ppid
     }
     return false
 }
@@ -23,13 +27,17 @@ private func readProcessEnvironment(_ pid: pid_t) -> [String]? {
     var limitMib: [Int32] = [CTL_KERN, KERN_ARGMAX]
     var limit: Int32 = 0
     var limitSize = MemoryLayout<Int32>.size
-    guard sysctl(&limitMib, UInt32(limitMib.count), &limit, &limitSize, nil, 0) == 0,
+    // SAFETY: Both output scalars have the sizes supplied to synchronous
+    // sysctl, and the MIB count matches its array. No pointers escape.
+    guard unsafe sysctl(&limitMib, UInt32(limitMib.count), &limit, &limitSize, nil, 0) == 0,
           limit >= Int32(MemoryLayout<Int32>.size) else { return nil }
     var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
     var size = Int(limit)
     var bytes = [UInt8](repeating: 0, count: size)
     let status = bytes.withUnsafeMutableBytes { buffer in
-        sysctl(&mib, UInt32(mib.count), buffer.baseAddress, &size, nil, 0)
+        // SAFETY: The allocated buffer is exactly the input byte capacity in
+        // size, and its pointer remains valid for this synchronous call only.
+        unsafe sysctl(&mib, UInt32(mib.count), buffer.baseAddress, &size, nil, 0)
     }
     guard status == 0 else { return nil }
     bytes.removeSubrange(size..<bytes.count)
@@ -40,7 +48,9 @@ private func readProcessEnvironment(_ pid: pid_t) -> [String]? {
 // arguments, then NUL-terminated environment entries. Reject truncated records.
 func agentEnvironmentFromProcArgs(_ bytes: [UInt8]) -> [String]? {
     guard bytes.count >= MemoryLayout<Int32>.size else { return nil }
-    let argc = bytes.withUnsafeBytes { $0.loadUnaligned(as: Int32.self) }
+    // SAFETY: The preceding bound check guarantees a complete Int32; an
+    // unaligned load is required because a byte array has no Int32 alignment.
+    let argc = bytes.withUnsafeBytes { unsafe $0.loadUnaligned(as: Int32.self) }
     guard argc > 0 else { return nil }
     var cursor = MemoryLayout<Int32>.size
     func skipString() -> Bool {

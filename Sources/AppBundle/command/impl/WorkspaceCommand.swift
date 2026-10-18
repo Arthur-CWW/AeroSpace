@@ -48,16 +48,19 @@ struct WorkspaceCommand: Command {
             .get()
             ?? []
         let currentMonitor = current.workspaceMonitor
-        let workspaces: [Workspace] = stdin != nil
+        let candidates: [Workspace] = stdin != nil
             ? stdinWorkspaces.map { Workspace.get(byName: $0.raw) }
             : Workspace.all.filter { $0.workspaceMonitor.rect.topLeftCorner == currentMonitor.rect.topLeftCorner }
                 .toSet()
                 .union([current])
                 .sorted()
+        let workspaces = candidates.filter {
+            !config.agent.excludeFromCycling || $0.name != config.agent.workspace
+        }
         if workspaces.isEmpty { throw "The list of workspaces is empty" }
         let index = workspaces.firstIndex(where: { $0 == target.workspace })
             .map { index in isNext ? index + 1 : index - 1 }
-            ?? 0
+            ?? (config.agent.excludeFromCycling && current.name == config.agent.workspace && !isNext ? workspaces.count - 1 : 0)
         return wrapAround
             ? try workspaces.get(wrappingIndex: index).toResult("List of workspaces is empty").get()
             : try workspaces.getOrNil(atIndex: index)

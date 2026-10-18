@@ -9,6 +9,78 @@ final class WorkspaceCommandTest: XCTestCase {
         _prevFocusedWorkspaceName = nil
     }
 
+    func testAgentWorkspaceIsSkippedInBothDirectionsIncludingWrapAndExplicitStdin() async {
+        let cases = [
+            ("a", "next", false, "c"),
+            ("c", "prev", false, "a"),
+            ("c", "next", true, "a"),
+            ("a", "prev", true, "c"),
+        ]
+        for useStdin in [false, true] {
+            for (current, direction, wrapAround, expected) in cases {
+                setUpWorkspacesForTests()
+                config.agent.workspace = "b"
+                config.persistentWorkspaces = ["a", "b", "c"]
+                assertTrue(Workspace.get(byName: current).focusWorkspace())
+                Workspace.garbageCollectUnusedWorkspaces()
+
+                let flags = (useStdin ? " --stdin" : " --no-stdin") + (wrapAround ? " --wrap-around" : "")
+                let stdin = useStdin ? CmdStdin("a\nb\nc\n") : .emptyStdin
+                let result = await parseCommand("workspace\(flags) \(direction)").cmdOrDie.run(.defaultEnv, stdin)
+                assertEquals(result.exitCode.rawValue, 0)
+                assertEquals(result.stderr, [])
+                assertEquals(focus.workspace.name, expected)
+            }
+        }
+    }
+
+    func testAgentWorkspaceCyclingOptOutRestoresAgentAsCandidate() async {
+        for useStdin in [false, true] {
+            for (current, direction) in [("a", "next"), ("c", "prev")] {
+                setUpWorkspacesForTests()
+                config.agent.workspace = "b"
+                config.agent.excludeFromCycling = false
+                config.persistentWorkspaces = ["a", "b", "c"]
+                assertTrue(Workspace.get(byName: current).focusWorkspace())
+                Workspace.garbageCollectUnusedWorkspaces()
+
+                let flag = useStdin ? "--stdin" : "--no-stdin"
+                let stdin = useStdin ? CmdStdin("a\nb\nc\n") : .emptyStdin
+                let result = await parseCommand("workspace \(flag) \(direction)").cmdOrDie.run(.defaultEnv, stdin)
+                assertEquals(result.exitCode.rawValue, 0)
+                assertEquals(focus.workspace.name, "b")
+            }
+        }
+    }
+
+    func testCyclingOnlyExcludedAgentWorkspaceReportsNoCandidatesWithoutChangingFocus() async {
+        for useStdin in [false, true] {
+            for direction in ["next", "prev"] {
+                setUpWorkspacesForTests()
+                config.agent.workspace = "b"
+                assertTrue(Workspace.get(byName: "b").focusWorkspace())
+                Workspace.garbageCollectUnusedWorkspaces()
+
+                let flag = useStdin ? "--stdin" : "--no-stdin"
+                let stdin = useStdin ? CmdStdin("b\n") : .emptyStdin
+                let result = await parseCommand("workspace \(flag) --wrap-around \(direction)").cmdOrDie.run(.defaultEnv, stdin)
+                assertEquals(result.exitCode.rawValue, 2)
+                XCTAssertFalse(result.stderr.isEmpty)
+                assertEquals(focus.workspace.name, "b")
+            }
+        }
+    }
+
+    func testDirectWorkspaceCommandStillReachesExcludedAgentWorkspace() async {
+        config.agent.workspace = "agent-tools"
+        assertTrue(Workspace.get(byName: "a").focusWorkspace())
+
+        let result = await parseCommand("workspace agent-tools").cmdOrDie.run(.defaultEnv, .emptyStdin)
+        assertEquals(result.exitCode.rawValue, 0)
+        assertEquals(result.stderr, [])
+        assertEquals(focus.workspace.name, "agent-tools")
+    }
+
     func testParseWorkspaceCommand() {
         testParseCommandFail("workspace my mail", msg: "ERROR: Unknown argument 'mail'", exitCode: 2)
         testParseCommandFail("workspace 'my mail'", msg: "ERROR: Whitespace characters are forbidden in workspace names", exitCode: 2)

@@ -4,6 +4,8 @@ import ServiceManagement
 
 @MainActor
 func syncStartAtLogin() {
+    // A local fork must not register itself or remove stock login artifacts.
+    guard managesAeroSpaceLoginItems(bundleId: Bundle.main.bundleIdentifier) else { return }
     cleanupPlistFromPrevVersions()
     let service = SMAppService.mainApp
     switch true {

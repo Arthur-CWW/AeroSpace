@@ -19,7 +19,7 @@ func startUnixSocketServer() {
 
 func toggleReleaseServerIfDebug(_ state: EnableCmdArgs.State) async {
     if serverArgs.isReadOnly { return }
-    if !isDebug { return }
+    if !isDebug || Bundle.main.bundleIdentifier != "bobko.aerospace.debug" { return }
     let socketFile = "/tmp/\(stableAeroSpaceAppId)-\(unixUserName).sock"
     let connection = NWConnection(to: NWEndpoint.unix(path: socketFile), using: .tcp)
     defer { connection.cancel() }

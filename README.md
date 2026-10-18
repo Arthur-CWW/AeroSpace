@@ -22,6 +22,22 @@ Accessibility permissions, or enable login items. Live switching and the
 Accessibility-permission trial remain **pending explicit human approval**.
 The stock installation is currently 0.20.3-Beta; do not run both WMs together.
 
+Runtime Accessibility resets target `Bundle.main.bundleIdentifier`, with no
+fallback to the stock identity. The fork identity
+`org.arthur.aerospace.fork` skips **all** `SMAppService` login-item
+synchronization, including unregistering and legacy login-plist cleanup,
+regardless of `start-at-login` in the shared config. Thus a fork trial does not
+register a fork login item or unregister the stock one. Stock-identity login-item
+behavior remains unchanged.
+
+The fork server derives its socket identity from its runtime bundle ID. The
+local build compiles the CLI with `ARTHUR_FORK`, making
+`org.arthur.aerospace.fork` its default identity as well. Thus
+`.arthur-build/aerospace` addresses the fork's isolated socket without a
+per-invocation environment variable; it does **not** silently query or control
+stock AeroSpace. When the fork is not running, connection failure is expected.
+Fork debug-mode behavior likewise does not toggle the stock installation.
+
 ### Local build and signing (macOS only)
 
 The upstream package requires **Swift >=6.2**, uses Swift **6.2 language mode**,
@@ -145,8 +161,9 @@ window instead:
 
 Replace `42` with the inspected window ID. Adoption requires an explicit ID and
 never silently adopts the focused window or every window of its application.
-The CLI connects to the running WM; use fork-only commands only during an
-approved fork trial, not while stock is running.
+The local CLI connects only to the fork's isolated socket; use these commands
+during an approved fork trial. They cannot query the stock WM when the fork is
+absent.
 
 **Human-directed focus only:** the following commands intentionally focus an
 agent window and can switch workspaces. Agents must not invoke them as an

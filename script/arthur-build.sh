@@ -62,7 +62,7 @@ mkdir -p "$build"
 
 # Keep the same compiler for SwiftPM and Xcode, bypassing the upstream project's
 # generated custom TOOLCHAINS ID. No generation, checkout, docs or completions.
-swift_build=(--package-path "$root" --scratch-path "$build/swift" -c release --arch "$arch" --product aerospace)
+swift_build=(--package-path "$root" --scratch-path "$build/swift" -c release --arch "$arch" --product aerospace -Xswiftc -D -Xswiftc ARTHUR_FORK)
 /usr/bin/xcrun --toolchain "$toolchain" swift build "${swift_build[@]}"
 cli_bin=$(/usr/bin/xcrun --toolchain "$toolchain" swift build "${swift_build[@]}" --show-bin-path)
 /usr/bin/xcodebuild build \

@@ -22,7 +22,9 @@ func waitForAccessibilityPermission_nonCancellable() async {
 }
 
 private func resetAccessibility() {
-    _ = try? Process.run(URL(filePath: "/usr/bin/tccutil"), arguments: ["reset", "Accessibility", aeroSpaceAppId])
+    // Never fall back to the stock identity when running an unbundled or renamed app.
+    guard let bundleId = Bundle.main.bundleIdentifier, !bundleId.isEmpty else { return }
+    _ = try? Process.run(URL(filePath: "/usr/bin/tccutil"), arguments: ["reset", "Accessibility", bundleId])
 }
 
 protocol ReadableAttr: Sendable {

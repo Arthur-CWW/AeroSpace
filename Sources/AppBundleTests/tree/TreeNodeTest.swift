@@ -3,7 +3,59 @@ import XCTest
 
 @MainActor
 final class TreeNodeTest: XCTestCase {
-    override func setUp() async throws { setUpWorkspacesForTests() }
+    override func setUp() async throws {
+        setUpWorkspacesForTests()
+        AgentWindowPolicy.windowIds = []
+        AgentWindowPolicy.lastFocusedWindowId = nil
+    }
+
+    func testAgentAdoptionFloatsOnlySelectedWindowWithoutChangingWorkspaceFocus() {
+        let workspace = Workspace.get(byName: "ordinary")
+        assertTrue(workspace.focusWorkspace())
+        let selected = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        let unrelated = TestWindow.new(id: 2, parent: workspace.rootTilingContainer)
+        config.agent.workspace = "agent-tools"
+        defer {
+            AgentWindowPolicy.forget(selected.windowId)
+            AgentWindowPolicy.forget(unrelated.windowId)
+        }
+
+        AgentWindowPolicy.adopt(selected)
+
+        let agentWorkspace = Workspace.get(byName: "agent-tools")
+        XCTAssertTrue(selected.parent === agentWorkspace.floatingWindowsContainer)
+        XCTAssertTrue(unrelated.parent === workspace.rootTilingContainer)
+        XCTAssertTrue(focus.workspace === workspace)
+        XCTAssertTrue(AgentWindowPolicy.windowIds.contains(selected.windowId))
+        XCTAssertFalse(AgentWindowPolicy.windowIds.contains(unrelated.windowId))
+
+        AgentWindowPolicy.adopt(selected)
+        assertEquals(agentWorkspace.floatingWindowsContainer.children.count, 1)
+        XCTAssertTrue(unrelated.parent === workspace.rootTilingContainer)
+    }
+
+    func testAgentWindowOrderIsStableAndForgettingFocusedWindowRemovesStaleFocus() {
+        let workspace = Workspace.get(byName: "ordinary")
+        let higher = TestWindow.new(id: 20, parent: workspace.rootTilingContainer)
+        let lower = TestWindow.new(id: 10, parent: workspace.rootTilingContainer)
+        defer {
+            AgentWindowPolicy.forget(higher.windowId)
+            AgentWindowPolicy.forget(lower.windowId)
+        }
+        AgentWindowPolicy.register(higher)
+        AgentWindowPolicy.register(lower)
+        AgentWindowPolicy.register(higher)
+        assertEquals(AgentWindowPolicy.windows.map(\.windowId), [10, 20])
+
+        AgentWindowPolicy.lastFocusedWindowId = lower.windowId
+        AgentWindowPolicy.forget(higher.windowId)
+        assertEquals(AgentWindowPolicy.windows.map(\.windowId), [10])
+        assertEquals(AgentWindowPolicy.lastFocusedWindowId, lower.windowId)
+
+        AgentWindowPolicy.forget(lower.windowId)
+        assertEquals(AgentWindowPolicy.windows.map(\.windowId), [])
+        assertEquals(AgentWindowPolicy.lastFocusedWindowId, nil)
+    }
 
     func testChildParentCyclicReferenceMemoryLeak() {
         let workspace = Workspace.get(byName: name) // Don't cache root node

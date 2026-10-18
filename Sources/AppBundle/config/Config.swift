@@ -34,6 +34,7 @@ var defaultConfigUrl: URL {
 
 struct Config: ConvenienceMutable {
     var configVersion: ConfigVersion = ._1
+    var agent = AgentConfig()
     var _afterLoginCommand: [any Command] = []
     var afterStartupCommand: Shell<any Command> = .empty
     var _indentForNestedContainersWithTheSameOrientation: Void = ()

@@ -127,6 +127,7 @@ private let persistentWorkspacesKey = "persistent-workspaces"
 // 2. Prefer commands and commands flags over toml options if possible
 private let configParser: [String: any ParserProtocol<Config>] = [
     configVersionConfigRootKey: Parser(\.configVersion, skipParsing(Config().configVersion)), // Parsed manually
+    "agent": Parser(\.agent, parseAgentConfig),
 
     "after-login-command": Parser(\._afterLoginCommand, parseDeprecatedAfterLoginCommand),
     "after-startup-command": Parser(\.afterStartupCommand, parseShellOfCommandsForConfig),

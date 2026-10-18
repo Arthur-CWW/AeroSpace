@@ -4,6 +4,7 @@
 ///                      (from nativeFocused to lastKnownNativeFocusedWindowId)
 /// Alternative names: takeFocusFromMacOs, syncFocusFromMacOs
 @MainActor func updateFocusCache(_ nativeFocused: Window?) {
+    if AgentWindowPolicy.suppressNativeFocus(nativeFocused) { return }
     if nativeFocused?.parent is MacosPopupWindowsContainer {
         return
     }

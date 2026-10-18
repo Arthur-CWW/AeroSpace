@@ -16,26 +16,30 @@ final class MacWindow: Window {
 
     @MainActor
     @discardableResult
-    static func getOrRegister(windowId: UInt32, macApp: MacApp) async throws -> MacWindow {
+    static func getOrRegister(windowId: UInt32, macApp: MacApp, adoptAsAgent: Bool = false) async throws -> MacWindow {
         if let existing = allWindowsMap[windowId] { return existing }
         let rect = try await macApp.getAxRect(windowId, .cancellable)
-        let data = try await unbindAndGetBindingDataForNewWindow(
-            windowId,
-            macApp,
-            isStartup
-                ? (rect?.center.monitorApproximation ?? mainMonitorInfo).activeWorkspace
-                : focus.workspace,
-            window: nil,
-            .cancellable,
-        )
+        let isAgent = adoptAsAgent || isAgentProcess(macApp.pid)
+        let data = isAgent
+            ? BindingData(parent: Workspace.get(byName: config.agent.workspace).floatingWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+            : try await unbindAndGetBindingDataForNewWindow(
+                windowId,
+                macApp,
+                isStartup
+                    ? (rect?.center.monitorApproximation ?? mainMonitorInfo).activeWorkspace
+                    : focus.workspace,
+                window: nil,
+                .cancellable,
+            )
 
         // atomic synchronous section
         if let existing = allWindowsMap[windowId] { return existing }
         let window = MacWindow(windowId, macApp, lastFloatingSize: rect?.size, parent: data.parent, adaptiveWeight: data.adaptiveWeight, index: data.index)
         allWindowsMap[windowId] = window
+        if isAgent { AgentWindowPolicy.register(window) }
 
         try await debugWindowsIfRecording(window, .cancellable)
-        if try await !restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: window) {
+        if !isAgent, try await !restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: window) {
             await runOnWindowDetected(ifConventional: window)
         }
         return window
@@ -80,6 +84,7 @@ final class MacWindow: Window {
         if MacWindow.allWindowsMap.removeValue(forKey: windowId) == nil {
             return
         }
+        AgentWindowPolicy.forget(windowId)
         if !skipClosedWindowsCache { cacheClosedWindowIfNeeded() }
         let parent = unbindFromParent().parent
         let deadWindowWorkspace = parent.nodeWorkspace
@@ -202,6 +207,10 @@ final class MacWindow: Window {
 extension Window {
     @MainActor
     func relayoutWindow(on workspace: Workspace, _ cm: CancellationMode, forceTile: Bool = false) async throws {
+        if !forceTile, AgentWindowPolicy.windowIds.contains(windowId) {
+            AgentWindowPolicy.adopt(self)
+            return
+        }
         let data = forceTile
             ? unbindAndGetBindingDataForNewTilingWindow(workspace, window: self)
             : try await unbindAndGetBindingDataForNewWindow(self.asMacWindow().windowId, self.asMacWindow().macApp, workspace, window: self, cm)
@@ -242,6 +251,7 @@ private func unbindAndGetBindingDataForNewTilingWindow(_ workspace: Workspace, w
 
 @MainActor
 func runOnWindowDetected(ifConventional window: Window) async {
+    if AgentWindowPolicy.windowIds.contains(window.windowId) { return }
     switch window.windowParentCases {
         case .tilingContainer, .floatingWindowsContainer, .macosMinimizedWindowsContainer,
              .macosFullscreenWindowsContainer, .macosHiddenAppsWindowsContainer:

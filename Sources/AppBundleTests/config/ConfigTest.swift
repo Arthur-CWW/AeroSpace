@@ -4,6 +4,73 @@ import XCTest
 
 @MainActor
 final class ConfigTest: XCTestCase {
+    func testAgentDefaultsKeepAgentWindowsFloatingAndOutOfWorkspaceCycling() {
+        let agent = Config().agent
+        assertEquals(agent.workspace, "agent")
+        assertEquals(agent.layout, "floating")
+        assertEquals(agent.excludeFromCycling, true)
+
+        let result = parseConfig("[agent]")
+        assertEquals(result.errors, [])
+        assertEquals(result.config.agent.workspace, agent.workspace)
+        assertEquals(result.config.agent.layout, agent.layout)
+        assertEquals(result.config.agent.excludeFromCycling, true)
+    }
+
+    func testAgentConfigAcceptsNamedWorkspaceAndExplicitCyclingOptOut() {
+        let result = parseConfig(
+            """
+            [agent]
+            workspace = 'agent-2'
+            layout = 'floating'
+            exclude-from-cycling = false
+            """,
+        )
+        assertEquals(result.errors, [])
+        assertEquals(result.config.agent.workspace, "agent-2")
+        assertEquals(result.config.agent.layout, "floating")
+        assertEquals(result.config.agent.excludeFromCycling, false)
+    }
+
+    func testAgentWorkspaceRejectsEmptyNumberedAndInvalidNames() {
+        for workspace in ["", "123", "next", "prev", "-agent", "agent workspace"] {
+            let result = parseConfig(
+                """
+                [agent]
+                workspace = '\(workspace)'
+                """,
+            )
+            XCTAssertFalse(result.errors.isEmpty, "Accepted invalid agent workspace: \(workspace)")
+            XCTAssertTrue(result.strErrors.contains { $0.contains("agent.workspace:") })
+        }
+    }
+
+    func testAgentLayoutRejectsTilingSoAgentWindowsCannotJoinNormalLayouts() {
+        for layout in ["tiles", "accordion", ""] {
+            let result = parseConfig(
+                """
+                [agent]
+                layout = '\(layout)'
+                """,
+            )
+            XCTAssertFalse(result.errors.isEmpty, "Accepted unsupported agent layout: \(layout)")
+            XCTAssertTrue(result.strErrors.contains { $0.contains("agent.layout:") })
+        }
+    }
+
+    func testAgentConfigRejectsWrongFieldTypes() {
+        for (field, value) in [("workspace", "123"), ("layout", "true"), ("exclude-from-cycling", "'false'")] {
+            let result = parseConfig(
+                """
+                [agent]
+                \(field) = \(value)
+                """,
+            )
+            XCTAssertFalse(result.errors.isEmpty, "Accepted wrong type for agent.\(field)")
+            XCTAssertTrue(result.strErrors.contains { $0.contains("agent.\(field):") })
+        }
+    }
+
     func testParseI3Config() {
         let toml = try! String(contentsOf: projectRoot.appending(component: "docs/config-examples/i3-like-config-example.toml"), encoding: .utf8)
         let result = parseConfig(toml)

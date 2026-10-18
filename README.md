@@ -13,6 +13,117 @@ Docs:
 - [AeroSpace Commands](https://nikitabobko.github.io/AeroSpace/commands)
 - [AeroSpace Goodies](https://nikitabobko.github.io/AeroSpace/goodies)
 
+## Arthur's local fork
+
+This fork builds a separate **AeroSpace-fork.app**, bundle ID
+`org.arthur.aerospace.fork`, without replacing `/Applications/AeroSpace.app`.
+Local build/install does **not** launch either WM, edit `~/.aerospace.toml`, reset
+Accessibility permissions, or enable login items. Live switching and the
+Accessibility-permission trial remain **pending explicit human approval**.
+The stock installation is currently 0.20.3-Beta; do not run both WMs together.
+
+### Local build and signing (macOS only)
+
+The upstream package requires **Swift >=6.2**, uses Swift **6.2 language mode**,
+and pins the compiler to **6.4.0** in `.swift-version`. These are different
+requirements. The available Mac has **Xcode 26.6 (17F113)** with bundled
+**Swift 6.3.3**; that bundled compiler does not reproduce the upstream pin.
+Select full Xcode through `DEVELOPER_DIR` or `xcode-select`; command-line tools
+alone are insufficient. The deployment target is macOS 13.
+
+Swiftly 1.1.4 and the pinned Swift 6.4.0 toolchain are installed on the Mac.
+For another Mac, initialize and install the pin first:
+
+```bash
+brew install swiftly
+swiftly init --no-modify-profile --skip-install --assume-yes
+swiftly install 6.4.0 --assume-yes
+```
+
+From this repository on the Mac, use the installed toolchain's verified bundle
+identifier explicitly:
+
+```bash
+./script/arthur-build.sh --toolchain org.swift.640202609131a
+./script/arthur-build.sh --toolchain org.swift.640202609131a --install
+```
+
+The script checks the selected compiler against `.swift-version` and refuses
+a mismatch by default. The checked-in Xcode project refers to an upstream
+custom toolchain; `--toolchain` overrides it for both Xcode and the Swift CLI.
+For a deliberately non-pinned local build using Xcode's bundled Swift instead:
+
+```bash
+./script/arthur-build.sh --allow-toolchain-mismatch
+# Add --install only when installation is intended.
+```
+
+That override still requires Swift >=6.2 and does not guarantee compatibility.
+Build/test success with any compiler must be recorded separately; these commands
+are not evidence that the compiler or live WM trial has been validated.
+
+By default signing uses the local
+`Apple Development: Created via API (AS8R4Z9F4R)` identity. To select another
+local identity, pass `--codesign-identity 'Apple Development: …'`; to use ad-hoc
+signing, pass `--codesign-identity -`. Ad-hoc signatures may not retain
+Accessibility trust across rebuilds. Signing is local, not notarization.
+
+The native-architecture Release app and SwiftPM CLI are staged at
+`.arthur-build/AeroSpace-fork.app` and `.arthur-build/aerospace`. Only explicit
+`--install` copies the app to `~/Applications/AeroSpace-fork.app`; the CLI stays
+in the build directory. The script uses the checked-in Xcode project, Swift
+package dependencies and generated sources. It does not run `generate.sh`,
+`build-release.sh`, `git checkout`, docs/completion generation, or install their
+Ruby/Rust dependencies. It does not produce universal binaries, release archives,
+fresh generated help/version metadata, or a Homebrew cask. Preserve `.arthur-build`
+between builds for incremental compilation.
+
+### Approved live trial and rollback
+
+**Do not execute these until the human approves the exact requested transition.**
+The approval variable is an explicit gate, not permission to approve on behalf
+of the human. No live swap, rollback, or Accessibility grant is implied by build
+or installation approval.
+
+After approval to quit the stock WM and launch the installed fork:
+
+```bash
+ARTHUR_WM_TRIAL_APPROVAL=swap ./script/arthur-wm-trial.sh swap
+```
+
+After approval to quit the fork and relaunch stock:
+
+```bash
+ARTHUR_WM_TRIAL_APPROVAL=rollback ./script/arthur-wm-trial.sh rollback
+```
+
+Both transitions validate the exact app paths, bundle identities and signatures
+before quitting anything. They gracefully quit only the matching running bundle,
+wait for termination, and request `open -g` background launch of the other app
+with `--config-path "$HOME/.aerospace.toml"`. They never force-kill by process name,
+change configuration, or grant permissions. Unexpected paths, symlinks, duplicate
+instances, an already-running destination, or failed termination cause refusal.
+If a launch fails after the source quits, use the approved opposite transition;
+an absent source is allowed so recovery does not require a running fork.
+Background launch does not prove that Accessibility permission or window
+management works. The separate fork identity needs its own manual Accessibility
+approval in System Settings, and rollback cannot reconstruct prior window layout.
+
+### Agent launches
+
+For agent-originated GUI processes, preserve the opt-in marker through a wrapper:
+
+```bash
+agent_run() { env AEROSPACE_AGENT=1 "$@"; }
+agent_run /path/to/application/executable
+```
+
+Marker inheritance requires a new process; opening a file in an already-running
+shared application does not retag that process or its windows. Use the fork's
+explicit window-adoption command for that case. Chrome title/profile routing and
+named-workspace policy are separate configuration discussions, not automatic
+side effects of building or installing this fork.
+
 ## Key features
 
 - Tiling window manager based on a [tree paradigm](https://nikitabobko.github.io/AeroSpace/guide#tree)
